@@ -41,7 +41,7 @@ Analyze the uploaded food label and return a detailed, well-formatted report usi
 
 ---
 
-**NutriBaby Food Label Analysis**
+<strong>NutriBaby Food Label Analysis</strong>
 
 🥣 Quick Overview (Per 100g)
 - 🔥 Calories
@@ -51,17 +51,17 @@ Analyze the uploaded food label and return a detailed, well-formatted report usi
 - 💪 Protein
 - 🦴 Calcium
 
-**📋 Ingredients Check**
+<strong>📋 Ingredients Check</strong>
 
 - List ingredients with emojis and remarks (✅ good, ⚠️ moderate, 🚫 avoid)
 
-**🚼 Concerns by Age Group**
+<strong>🚼 Concerns by Age Group</strong>
 
 - 👶 6–12 months
 - 🧒 1–2 years
 - 👧 2+ years
 
-**✅ NutriBaby Tips**
+<strong>✅ NutriBaby Tips</strong>
 
 - Suggest healthy alternatives
 - Simple feeding tips with emojis
@@ -69,7 +69,7 @@ Analyze the uploaded food label and return a detailed, well-formatted report usi
 End with:
 
 Powered by SuperAI  
-Join NutriBaby Parents [Whatsapp](https://chat.whatsapp.com/L3rhA1Pg9jUA6VMwWqbPkC) Community
+Join NutriBaby Parents <a href="https://chat.whatsapp.com/L3rhA1Pg9jUA6VMwWqbPkC">Whatsapp</a> Community
 
 DO NOT include download/copy/share buttons. Just formatted text.
 """
@@ -102,8 +102,6 @@ if uploaded_file:
 
         if st.button("🔍 Analyze Now"):
             with st.spinner("Analyzing with NutriBaby..."):
-
-                # Convert image to bytes
                 image_bytes = io.BytesIO()
                 image.save(image_bytes, format="JPEG")
 
