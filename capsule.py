@@ -30,7 +30,7 @@ uploaded_file = st.file_uploader("📤 Upload Label Image", type=["jpg", "jpeg",
 def is_image_clear(image: Image.Image) -> bool:
     return image.width >= 300 and image.height >= 300
 
-# --- GPT Analysis ---
+# --- GPT Analysis Function ---
 def analyze_label(image_bytes, age_group):
     base64_image = base64.b64encode(image_bytes).decode("utf-8")
 
@@ -41,7 +41,7 @@ Analyze the uploaded food label and return a detailed, well-formatted report usi
 
 ---
 
-**NutriBaby Food Label Analysis**
+NutriBaby Food Label Analysis
 
 🥣 Quick Overview (Per 100g)
 - 🔥 Calories
@@ -51,25 +51,22 @@ Analyze the uploaded food label and return a detailed, well-formatted report usi
 - 💪 Protein
 - 🦴 Calcium
 
-**📋 Ingredients Check**
-
+📋 Ingredients Check
 - List ingredients with emojis and remarks (✅ good, ⚠️ moderate, 🚫 avoid)
 
-**🚼 Concerns by Age Group**
-
+🚼 Concerns by Age Group
 - 👶 6–12 months
 - 🧒 1–2 years
 - 👧 2+ years
 
-**✅ NutriBaby Tips**
-
+✅ NutriBaby Tips
 - Suggest healthy alternatives
 - Simple feeding tips with emojis
 
 End with:
 
 Powered by SuperAI  
-Join NutriBaby Parents[Whatsapp](https://chat.whatsapp.com/L3rhA1Pg9jUA6VMwWqbPkC) Community – 
+Join NutriBaby Parents Community – https://chat.whatsapp.com/L3rhA1Pg9jUA6VMwWqbPkC
 
 DO NOT include download/copy/share buttons. Just formatted text.
 """
@@ -87,7 +84,7 @@ DO NOT include download/copy/share buttons. Just formatted text.
                 }
             ]}
         ],
-        max_tokens=1200
+        max_tokens=1000
     )
     return response.choices[0].message.content.strip()
 
@@ -102,10 +99,21 @@ if uploaded_file:
 
         if st.button("🔍 Analyze Now"):
             with st.spinner("Analyzing with NutriBaby..."):
+
+                # Convert image to bytes
                 image_bytes = io.BytesIO()
                 image.save(image_bytes, format="JPEG")
-                result = analyze_label(image_bytes.getvalue(), age_group)
 
+                try:
+                    result = analyze_label(image_bytes.getvalue(), age_group)
+                except openai.RateLimitError:
+                    st.error("⚠️ OpenAI is currently rate-limiting you. Please wait a minute and try again.")
+                    st.stop()
+                except openai.OpenAIError as e:
+                    st.error(f"❌ An error occurred while contacting OpenAI: {e}")
+                    st.stop()
+
+            # --- Output in Styled Container ---
             st.markdown(f"""
 <div style="background:#f8f9fa; padding:1rem; border-radius:12px;">
 {result}
@@ -113,4 +121,4 @@ if uploaded_file:
 """, unsafe_allow_html=True)
 
 else:
-    st.info("Upload a food label image to get started.")
+    st.info("Upload a baby food label image to get started.")
