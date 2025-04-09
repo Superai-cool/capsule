@@ -15,33 +15,8 @@ openai.api_key = st.secrets["openai"]["api_key"]
 BRANDING_START = "**Powered by SuperAI**"
 BRANDING_END = "**Join NutriBaby Parents Community** – [click here](https://chat.whatsapp.com/L3rhA1Pg9jUA6VMwWqbPkC)"
 
-# --- Page Config ---
+# --- Page Setup ---
 st.set_page_config(page_title="NutriBaby", layout="centered", page_icon="🍼")
-
-# --- Custom CSS ---
-st.markdown("""
-    <style>
-    .stButton>button {
-        background-color: #FF6B6B;
-        color: white;
-        border-radius: 8px;
-        font-weight: bold;
-        padding: 0.5em 1em;
-    }
-    .stDownloadButton>button {
-        background-color: #1E90FF;
-        color: white;
-        border-radius: 6px;
-        margin-top: 10px;
-    }
-    .container-box {
-        background-color: #f8f9fa;
-        padding: 1rem;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-    </style>
-""", unsafe_allow_html=True)
 
 # --- Title ---
 st.title("🍼 NutriBaby - Baby Food Label Analyzer")
@@ -102,7 +77,7 @@ def analyze_label(image_bytes, age_group):
     )
     return response.choices[0].message.content.strip()
 
-# --- Generate PDF Function ---
+# --- Generate PDF ---
 def generate_pdf(text):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
         c = canvas.Canvas(tmp_file.name, pagesize=A4)
@@ -131,14 +106,15 @@ if uploaded_file:
                 image.save(image_bytes, format="JPEG")
                 result = analyze_label(image_bytes.getvalue(), age_group)
 
-            # --- Output Box ---
-            with st.container():
-                st.markdown(f"""<div class="container-box">{result}</div>""", unsafe_allow_html=True)
+            # --- Display Output in Styled Box ---
+            st.markdown(f"""<div style="background:#f8f9fa; padding:1rem; border-radius:12px;">
+            {result}
+            </div>""", unsafe_allow_html=True)
 
-            # --- PDF Download ---
+            # --- Download PDF Icon Button Only ---
             pdf_file_path = generate_pdf(result)
             with open(pdf_file_path, "rb") as f:
-                st.download_button("📥 Download as PDF", f, file_name="nutribaby_analysis.pdf", mime="application/pdf")
+                st.download_button("📥 Download PDF", f, file_name="nutribaby_analysis.pdf", mime="application/pdf")
 
             # --- WhatsApp Share ---
             encoded_text = urllib.parse.quote(result)
@@ -151,8 +127,8 @@ if uploaded_file:
             </a>
             """, unsafe_allow_html=True)
 
-            # --- Manual Copy ---
-            st.text_area("📋 Copy this analysis manually:", value=result, height=200)
+            # --- Copyable Text Box Only (no broken button) ---
+            st.text_area("📋 Copy this result manually (if needed):", value=result, height=200)
 
 else:
     st.info("Upload a food label image to begin.")
