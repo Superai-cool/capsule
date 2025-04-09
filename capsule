@@ -1,187 +1,128 @@
 import streamlit as st
 import openai
-import os
-from langdetect import detect
+import re
+import random
+from datetime import datetime
 
-# ------------------ App Configuration ------------------
-st.set_page_config(page_title="Bank Genie - Internal Assistant", layout="centered")
+# Load API Key
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-# ------------------ Load OpenAI API Key ------------------
-api_key = os.getenv("OPENAI_API_KEY")
-if not api_key:
-    st.error("❌ OpenAI API key not found. Please set it in your Streamlit Cloud Secrets or local environment.")
-    st.stop()
-openai.api_key = api_key
+# Constants
+sponsor_lines = [
+    "📣 Capsule Ads | Increase Your Business Visibility | [WhatsApp Now](https://wa.link/mwb2hf)",
+    "📣 Amazon | One-Stop Online Shopping | [https://www.amazon.com](https://www.amazon.com)",
+    "📣 Flipkart | Fashion, Electronics & More | [https://www.flipkart.com](https://www.flipkart.com)",
+    "📣 Myntra | Trendy Fashion & Accessories | [https://www.myntra.com](https://www.myntra.com)",
+    "📣 Blinkit | Instant Grocery & Essentials | [https://www.blinkit.com](https://www.blinkit.com)",
+    "📣 Sid's Farm | Pure & Fresh Dairy Products | [https://www.sidsfarm.com](https://www.sidsfarm.com)",
+    "📣 Nykaa | Beauty, Skincare & Cosmetics | [https://www.nykaa.com](https://www.nykaa.com)",
+    "📣 Urban Company | Home & Personal Services | [https://www.urbancompany.com](https://www.urbancompany.com)",
+    "📣 Zomato | Online Food Delivery & Restaurants | [https://www.zomato.com](https://www.zomato.com)",
+    "📣 Porter | Mini Truck & Bike Logistics | [https://www.porter.in](https://www.porter.in)"
+]
 
-# ------------------ Styling ------------------
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
-    html, body, [class*="css"] {
-        font-family: 'Poppins', sans-serif;
-        background-color: #f8f9fa;
-    }
-    .block-container {
-        max-width: 650px;
-        background-color: white;
-        border-radius: 1.5rem;
-        padding: 2rem;
-        margin: auto;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-    .stTextInput>div>div>input {
-        border-radius: 0.75rem;
-        padding: 1rem;
-        font-size: 1rem;
-    }
-    .stButton>button {
-        font-size: 16px;
-        border-radius: 10px;
-        padding: 10px 24px;
-        font-weight: bold;
-        width: 100%;
-        border: none;
-        margin-top: 10px;
-        background-color: #000000;
-        color: white;
-    }
-    .custom-answer {
-        font-size: 1rem;
-        margin-bottom: 1rem;
-    }
-    .example-line {
-        margin-top: 1rem;
-        font-style: italic;
-        color: #333333;
-        background-color: #f0f0f0;
-        padding: 10px;
-        border-radius: 8px;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# ------------------ Session Initialization ------------------
-if "user_query" not in st.session_state:
-    st.session_state.user_query = ""
-if "response" not in st.session_state:
-    st.session_state.response = None
-if "detail_level" not in st.session_state:
-    st.session_state.detail_level = "Short"
-
-# ------------------ Header ------------------
-st.title("🏦 Bank Genie - Internal Q&A Assistant")
-st.markdown("""
-👋 Welcome to **Bank Genie** — Empowering Bank Teams with Instant, Multilingual Support.
-
-💬 Ask any bank-related question below, and Bank Genie will provide accurate, helpful answers tailored to your preference — whether concise or in-depth.
-
-📞 For further assistance or support, feel free to call or WhatsApp us at +91-8830720742.
-""")
-
-# ------------------ Detail Level Selector ------------------
-st.session_state.detail_level = st.selectbox(
-    "Choose answer detail level:",
-    ["Short", "Detailed"],
-    index=0 if st.session_state.detail_level == "Short" else 1
+valid_query_pattern = re.compile(
+    r"^Top 10 ([A-Za-z]+|[A-Za-z]+\s[A-Za-z]+) (News Today|[A-Za-z]+\sNews Today)$"
 )
 
-# ------------------ Prompt Template ------------------
-BANK_GENIE_PROMPT = """
-You are Bank Genie — an internal assistant for bank employees only. You answer only bank-related queries like:
-- Account opening/closure, KYC, dormant accounts
-- Deposits, withdrawals, cash handling rules
-- NEFT, RTGS, UPI, IMPS, cheque handling
-- Loans, documentation, eligibility
-- Internal tools like Finacle or CBS
-- Internal policies, RBI guidelines, audits
-- Staff-related questions only if tied to internal policies
+# Streamlit UI
+st.set_page_config(page_title="Capsule – Top 10 News Summarizer", layout="centered")
+st.title("📰 Capsule – Top 10 News Summarizer")
+st.markdown("Enter your request in one of the **accepted formats**:")
 
-❌ Do NOT answer anything unrelated to banking. Respond with:
-"I’m designed to answer only internal bank-related questions. Please ask something related to banking."
+with st.expander("📌 Accepted Formats"):
+    st.markdown("""
+    1. Top 10 **[Topic]** News Today  
+       _Example: Top 10 Sports News Today_  
+    2. Top 10 **[City Name]** News Today  
+       _Example: Top 10 Delhi News Today_  
+    3. Top 10 **[City Name] [Topic]** News Today  
+       _Example: Top 10 Mumbai Politics News Today_
+    """)
 
-✅ For valid banking questions:
-"""
+user_query = st.text_input("🔍 Your Query")
 
-if st.session_state.detail_level == "Short":
-    BANK_GENIE_PROMPT += """
-- Give a short, summarized answer (1–3 lines)
-- Include 1 simple real-life example (use Indian context and INR)
-"""
-else:
-    BANK_GENIE_PROMPT += """
-- Give a clear, helpful answer (up to 5–6 lines)
-- Include 1 proper real-life example with Indian context and INR
-"""
+def is_valid_query(query):
+    return bool(valid_query_pattern.match(query)) and all(ord(c) < 128 for c in query)
 
-BANK_GENIE_PROMPT += """
-- Keep answer and example on separate lines with space between
-- Avoid repeating the word "Example" if it’s already used
-- Answer in the same language the user asked
-"""
+def build_prompt(query):
+    today = datetime.now().strftime("%B %d, %Y")
+    shuffled_sponsors = random.sample(sponsor_lines, 10)
+    prompt = f"""You are Capsule, a professional English-language news summarizer for Indian news. Only respond to queries in this format: 
 
-# ------------------ Language Detection ------------------
-def detect_user_language(text):
-    try:
-        text = text.strip()
-        if len(text) < 10:
-            return "en"
-        lang_code = detect(text)
-        allowed_languages = {"en", "hi", "mr", "ta", "te", "gu", "kn", "bn", "ml", "pa", "or", "ur", "as", "ne", "si"}
-        return lang_code if lang_code in allowed_languages else "en"
-    except:
-        return "en"
+Top 10 [Topic] News Today  
+Top 10 [City Name] News Today  
+Top 10 [City Name] [Topic] News Today  
 
-# ------------------ GPT Call ------------------
-def get_bank_response(query):
-    try:
-        query = query.strip()
-        if len(query.split()) <= 3 and not query.endswith("?"):
-            query = f"What is {query}?"
-        user_lang = detect_user_language(query)
-        lang_instruction = f"Answer the question in this language: {user_lang}. Use Indian context and INR for all examples. Keep the main answer and example clearly separated with a blank line."
-        response = openai.ChatCompletion.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": f"{BANK_GENIE_PROMPT}\n\n{lang_instruction}"},
-                {"role": "user", "content": query}
-            ],
-            temperature=0.3
-        )
-        return response['choices'][0]['message']['content'].strip()
-    except Exception as e:
-        st.error(f"❌ GPT Error: {e}")
-        return None
+Today's request is: "{query}" (Date: {today})  
 
-# ------------------ Input Field ------------------
-user_input = st.text_input(
-    "Ask your question (in any language):",
-    value=st.session_state.user_query,
-    max_chars=300
-)
+Rules:
+- Give exactly 10 news summaries, only about the topic/city.
+- Each must be ~60–70 words.
+- Must be clearly written, neutral tone.
+- No duplication or mixed topics.
+- Use only verified, reputed Indian news sources from today (Times of India, The Hindu, IE, Mint, etc).
+- Format each as:
 
-# ------------------ Ask Button ------------------
-if st.button("Ask to Bank Genie") and user_input.strip():
-    st.session_state.user_query = user_input
-    with st.spinner("Thinking like a banker..."):
-        st.session_state.response = get_bank_response(user_input)
-
-# ------------------ Output ------------------
-if st.session_state.response:
-    reply = st.session_state.response
-    if "\n\n" in reply:
-        answer, example = reply.split("\n\n", 1)
-        example_clean = example.strip().removeprefix("Example:").strip()
-        st.markdown(f"""
-        <div class='custom-answer'>{answer.strip()}</div>
-        <div class='example-line'>💡 Example: {example_clean}</div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown(f"### ✅ Answer\n{reply}")
-
-# ------------------ Footer ------------------
-st.markdown("""
+1. [Category] | [Date]  
+**Heading**  
+News summary...  
+📣 [One sponsor line]  
 ---
-<div style="text-align:center">
-<small>🔐 For internal banking use only | Powered by SuperAI Labs</small>
-</div>
-""", unsafe_allow_html=True)
+
+After 10 items, close with:  
+✅ All 10 news checked—done for today! 🎯
+
+Here is today’s output:"""
+    return prompt, shuffled_sponsors
+
+if user_query:
+    if not is_valid_query(user_query):
+        st.warning("""
+        📢 **Capsule** works only with **properly formatted requests.** Ask in one of the **formats below:**
+
+        📌 Accepted Request Formats:
+
+        1. Top 10 [Topic] News Today  
+        Example: Top 10 Sports News Today
+
+        2. Top 10 [City Name] News Today  
+        Example: Top 10 Delhi News Today
+
+        3. Top 10 [City Name] [Topic] News Today  
+        Example: Top 10 Mumbai Politics News Today
+
+        📩 Need Help?  
+        [WhatsApp](https://wa.link/mwb2hf) us your query at +91 8830720742
+        """)
+    else:
+        with st.spinner("Generating your top 10 news..."):
+            prompt, shuffled_sponsors = build_prompt(user_query)
+
+            attempts = 0
+            response_valid = False
+            while attempts < 3 and not response_valid:
+                try:
+                    response = openai.ChatCompletion.create(
+                        model="gpt-4",
+                        messages=[{"role": "user", "content": prompt}],
+                        temperature=0.7,
+                    )
+                    result = response.choices[0].message.content.strip()
+
+                    # Check for 10 summaries and sponsor lines
+                    news_items = result.split('---')
+                    headings = re.findall(r'\*\*(.*?)\*\*', result)
+                    sponsors = [line for line in result.splitlines() if '📣' in line]
+
+                    if len(news_items) == 10 and len(headings) == 10 and len(sponsors) == 10:
+                        response_valid = True
+                        st.markdown(result)
+                    else:
+                        attempts += 1
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+                    break
+
+            if not response_valid:
+                st.error("⚠️ Unable to generate a valid response after multiple attempts. Please try again later.")
