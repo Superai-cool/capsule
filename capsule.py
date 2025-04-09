@@ -1,117 +1,107 @@
 import streamlit as st
 import openai
-import requests
-import re
-import random
-import urllib.parse
-from datetime import datetime
+from PIL import Image
+import base64
+import io
 
-# Load API keys
-openai.api_key = st.secrets["OPENAI_API_KEY"]
-NEWS_API_KEY = st.secrets["NEWS_API_KEY"]
+# Set OpenAI API Key from secrets
+openai.api_key = st.secrets["openai"]["api_key"]
 
-# Sponsors
-sponsor_lines = [
-    "📣 Capsule Ads | Increase Your Business Visibility | https://wa.link/mwb2hf",
-    "📣 Amazon | One-Stop Online Shopping | https://www.amazon.com",
-    "📣 Flipkart | Fashion, Electronics & More | https://www.flipkart.com",
-    "📣 Myntra | Trendy Fashion & Accessories | https://www.myntra.com",
-    "📣 Blinkit | Instant Grocery & Essentials | https://www.blinkit.com",
-    "📣 Sid's Farm | Pure & Fresh Dairy Products | https://www.sidsfarm.com",
-    "📣 Nykaa | Beauty, Skincare & Cosmetics | https://www.nykaa.com",
-    "📣 Urban Company | Home & Personal Services | https://www.urbancompany.com",
-    "📣 Zomato | Online Food Delivery & Restaurants | https://www.zomato.com",
-    "📣 Porter | Mini Truck & Bike Logistics | https://www.porter.in"
-]
+# --- Branding Strings ---
+BRANDING_START = "**Powered by SuperAI**"
+BRANDING_END = "**Join NutriBaby Parents Community** – [click here](https://chat.whatsapp.com/L3rhA1Pg9jUA6VMwWqbPkC)."
 
-# Valid query formats
-valid_query_pattern = re.compile(
-    r"^Top 10 ([A-Za-z]+|[A-Za-z]+\s[A-Za-z]+) (News Today|[A-Za-z]+\sNews Today)$"
+# --- Page Config ---
+st.set_page_config(
+    page_title="NutriBaby - Baby Food Analyzer",
+    layout="centered",
+    page_icon="🍼",
 )
 
-# UI
-st.set_page_config(page_title="Capsule – India News", layout="centered")
-st.title("🇮🇳 Capsule – Real-Time Indian News Summarizer")
+# --- Custom Styles ---
+st.markdown("""
+    <style>
+    .main { background-color: #F9FAFC; }
+    button {
+        background-color: #5A9;
+        color: white;
+        padding: 8px 20px;
+        border-radius: 12px;
+        font-weight: bold;
+        margin-top: 10px;
+    }
+    .uploadedImage {
+        border-radius: 10px;
+        border: 1px solid #ddd;
+        margin-bottom: 10px;
+        width: 100%;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-with st.expander("📌 Accepted Formats"):
+# --- Title Section ---
+st.markdown("## 🍼 Welcome to **NutriBaby**")
+st.markdown("Helping parents make smarter food choices for their babies and toddlers.")
+
+# --- Step Guide ---
+with st.expander("📋 How to Analyze Baby Food Labels (Tap to expand)", expanded=False):
     st.markdown("""
-    1. Top 10 **[Topic]** News Today  
-       _Example: Top 10 Sports News Today_  
-    2. Top 10 **[City Name]** News Today  
-       _Example: Top 10 Delhi News Today_  
-    3. Top 10 **[City Name] [Topic]** News Today  
-       _Example: Top 10 Mumbai Crime News Today_
+    1️⃣ **Take a clear photo** of the food label showing both **nutritional values** and **ingredients**.  
+    2️⃣ **Upload the image** below for instant analysis.
     """)
 
-user_query = st.text_input("🔍 Enter your query (must match format)")
+# --- Upload Image ---
+st.markdown("### 📤 Upload Food Label Image")
+uploaded_file = st.file_uploader("Only baby/toddler food labels are accepted (ingredients + nutrition).", type=["png", "jpg", "jpeg"])
 
-def is_valid_query(query):
-    return bool(valid_query_pattern.match(query)) and all(ord(c) < 128 for c in query)
+def is_image_clear(image: Image.Image) -> bool:
+    # Simple resolution check
+    min_width, min_height = 300, 300
+    return image.width >= min_width and image.height >= min_height
 
-def extract_topic(query):
-    return query.replace("Top 10", "").replace("News Today", "").strip()
+def analyze_label(image_bytes):
+    base64_image = base64.b64encode(image_bytes).decode("utf-8")
 
-def fetch_indian_news(query):
-    topic = extract_topic(query)
-    url = f"https://newsapi.org/v2/top-headlines?q={topic}&country=in&language=en&pageSize=10&apiKey={NEWS_API_KEY}"
-    res = requests.get(url)
-    articles = res.json().get("articles", [])
-    return [
-        {
-            "title": a["title"],
-            "description": a["description"] or "",
-            "source": a["source"]["name"],
-            "url": a["url"]
-        }
-        for a in articles if a["title"] and a["url"]
-    ]
+    response = openai.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": (
+                "You are NutriBaby, an expert nutrition assistant for baby and toddler food. "
+                "Analyze food label images provided by users and give detailed, scientifically accurate advice. "
+                "Focus on nutrients, allergens, sugars, and additives. Provide clear, age-appropriate guidance, and suggest better alternatives if needed. "
+                "Always start with 'Powered by SuperAI' and end with 'Join NutriBaby Parents Community – [click here](https://chat.whatsapp.com/L3rhA1Pg9jUA6VMwWqbPkC).' "
+                "Respond only to food-related labels. Politely reject unclear, blurry, or unrelated images."
+            )},
+            {"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+            ]}
+        ],
+        max_tokens=1000
+    )
 
-def format_summaries(query, articles):
-    today = datetime.now().strftime("%B %d, %Y")
-    sponsors = random.sample(sponsor_lines, 10)
-    summaries = []
+    return response.choices[0].message.content.strip()
 
-    for idx, (a, sponsor) in enumerate(zip(articles, sponsors), start=1):
-        heading = a['title']
-        summary = a['description']
-        read_more = f"[🔗 Read more – {a['source']}]({a['url']})"
+# --- Analyze Button ---
+if uploaded_file:
+    image = Image.open(uploaded_file)
 
-        formatted = f"""
-{idx}. {query} | {today}  
-**{heading}**  
-{summary}  
-{read_more}  
-{str(sponsor)}  
----
-"""
-        summaries.append(formatted.strip())
-
-    summaries.append("✅ All 10 news checked—done for today! 🎯")
-    return "\n\n".join(summaries)
-
-def generate_share_links(summary_text):
-    share_text = urllib.parse.quote(summary_text[:1500])
-    wa_link = f"https://api.whatsapp.com/send?text={share_text}"
-    tg_link = f"https://t.me/share/url?url=&text={share_text}"
-    return wa_link, tg_link
-
-if user_query:
-    if not is_valid_query(user_query):
-        st.warning("⚠️ Invalid format. Use:\n- Top 10 Sports News Today\n- Top 10 Delhi News Today\n- Top 10 Mumbai Crime News Today")
+    if not is_image_clear(image):
+        st.warning("Image is too blurry or small. Please upload a clearer photo showing full nutritional info.")
     else:
-        with st.spinner("🧠 Fetching live headlines from India..."):
-            articles = fetch_indian_news(user_query)
+        st.image(image, caption="Uploaded Label", use_column_width=True, output_format="JPEG")
 
-            if not articles:
-                st.error("❌ No Indian news found for that topic today.")
-            else:
-                summary_output = format_summaries(user_query, articles)
-                st.markdown("### ✅ Today's Indian News")
-                st.markdown(summary_output)
+        if st.button("🔍 Analyze Now"):
+            with st.spinner("Analyzing label..."):
+                image_bytes = io.BytesIO()
+                image.save(image_bytes, format="JPEG")
+                analysis = analyze_label(image_bytes.getvalue())
 
-                # Share buttons
-                st.markdown("---")
-                st.subheader("📤 Share This")
-                wa_link, tg_link = generate_share_links(summary_output)
-                st.markdown(f"[💬 Share on WhatsApp]({wa_link})", unsafe_allow_html=True)
-                st.markdown(f"[📢 Share on Telegram]({tg_link})", unsafe_allow_html=True)
+            # Display Result
+            st.markdown(f"{BRANDING_START}\n\n{analysis}\n\n{BRANDING_END}")
+
+else:
+    st.info("Upload a baby food label image to begin.")
+
+# --- Footer ---
+st.markdown("---")
+st.markdown("Built with ❤️ to support healthy baby nutrition.")
