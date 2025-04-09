@@ -48,32 +48,41 @@ def is_valid_query(query):
 def build_prompt(query):
     today = datetime.now().strftime("%B %d, %Y")
     shuffled_sponsors = random.sample(sponsor_lines, 10)
-    prompt = f"""You are Capsule, a professional English-language news summarizer for Indian news. Only respond to queries in this format: 
+    sponsor_text = "\n".join([f"{i+1}. {s}" for i, s in enumerate(shuffled_sponsors)])
 
-Top 10 [Topic] News Today  
-Top 10 [City Name] News Today  
-Top 10 [City Name] [Topic] News Today  
+    prompt = f"""
+You are Capsule, a strict English-language Indian news summarizer. Only accept queries in this format:
 
-Today's request is: "{query}" (Date: {today})  
+1. Top 10 [Topic] News Today
+2. Top 10 [City Name] News Today
+3. Top 10 [City Name] [Topic] News Today
 
-Rules:
-- Give exactly 10 news summaries, only about the topic/city.
-- Each must be ~60–70 words.
-- Must be clearly written, neutral tone.
-- No duplication or mixed topics.
-- Use only verified, reputed Indian news sources from today (Times of India, The Hindu, IE, Mint, etc).
-- Format each as:
+Query: "{query}"  
+Date: {today}  
 
-1. [Category] | [Date]  
-**Heading**  
-News summary...  
-📣 [One sponsor line]  
+Strict Output Rules:
+- ✅ Exactly 10 summaries.
+- ✅ Each summary must be about the requested category only.
+- ✅ Each summary must follow **this exact format**:
+
+<number>. [Topic/City] | {today}  
+**Headline**  
+Summary (60–70 words only, no bold or quotes)  
+📣 [One of the sponsor lines below]  
 ---
 
-After 10 items, close with:  
-✅ All 10 news checked—done for today! 🎯
+- ❌ No extra content or commentary.
+- ❌ Do NOT return less than or more than 10.
+- ❌ Do NOT include multiple sources, emojis, or HTML.
 
-Here is today’s output:"""
+Use only today's verified Indian sources: TOI, IE, Mint, Hindu, HT, etc.
+
+Use these 10 sponsors (random order, once each):
+{sponsor_text}
+
+End with:  
+✅ All 10 news checked—done for today! 🎯
+"""
     return prompt, shuffled_sponsors
 
 if user_query:
