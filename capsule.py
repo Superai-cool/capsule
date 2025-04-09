@@ -4,12 +4,10 @@ import re
 import random
 from datetime import datetime
 
-# Load OpenAI API key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-# Sponsor lines
 sponsor_lines = [
-    "📣 Capsule Ads | Increase Your Business Visibility | [WhatsApp Now](https://wa.link/mwb2hf)",
+    "📣 Capsule Ads | Increase Your Business Visibility | https://wa.link/mwb2hf",
     "📣 Amazon | One-Stop Online Shopping | https://www.amazon.com",
     "📣 Flipkart | Fashion, Electronics & More | https://www.flipkart.com",
     "📣 Myntra | Trendy Fashion & Accessories | https://www.myntra.com",
@@ -21,12 +19,10 @@ sponsor_lines = [
     "📣 Porter | Mini Truck & Bike Logistics | https://www.porter.in"
 ]
 
-# Query pattern
 valid_query_pattern = re.compile(
     r"^Top 10 ([A-Za-z]+|[A-Za-z]+\s[A-Za-z]+) (News Today|[A-Za-z]+\sNews Today)$"
 )
 
-# UI
 st.set_page_config(page_title="Capsule – Top 10 News Summarizer", layout="centered")
 st.title("📰 Capsule – Top 10 News Summarizer")
 
@@ -49,7 +45,6 @@ def build_prompt(query):
     today = datetime.now().strftime("%B %d, %Y")
     shuffled_sponsors = random.sample(sponsor_lines, 10)
     sponsor_text = "\n".join([f"{i+1}. {s}" for i, s in enumerate(shuffled_sponsors)])
-
     return f"""
 You're Capsule – an English-only news summarizer for India.
 
@@ -79,13 +74,12 @@ Sponsors (use one per item, any order):
 if user_query:
     if not is_valid_query(user_query):
         st.warning("""
-        📢 **Capsule** works only with **properly formatted requests.** Use one of:
+        📢 **Capsule** works only with **properly formatted requests.**
 
-        - Top 10 [Topic] News Today  
-        - Top 10 [City Name] News Today  
-        - Top 10 [City Name] [Topic] News Today
-
-        📩 Need Help? [WhatsApp](https://wa.link/mwb2hf) us your query at +91 8830720742
+        ✅ Try formats like:  
+        - Top 10 Sports News Today  
+        - Top 10 Mumbai News Today  
+        - Top 10 Delhi Politics News Today
         """)
     else:
         with st.spinner("Generating your top 10 news..."):
@@ -103,14 +97,18 @@ if user_query:
                     )
                     result = response.choices[0].message.content.strip()
 
-                    # Validation: must have 10 summaries, 10 headings, 10 sponsors
-                    news_items = result.split('---')
-                    headings = re.findall(r'\*\*(.*?)\*\*', result)
-                    sponsors = [line for line in result.splitlines() if '📣' in line]
+                    # Validate counts
+                    divider_count = result.count('---')
+                    heading_count = len(re.findall(r'\*\*(.*?)\*\*', result))
+                    sponsor_count = len(re.findall(r'📣', result))
 
-                    if len(news_items) == 10 and len(headings) == 10 and len(sponsors) == 10:
+                    if divider_count == 10 and heading_count == 10 and sponsor_count == 10:
                         response_valid = True
                         st.markdown("### ✅ Top 10 News Summaries")
+                        st.markdown(result)
+                    elif divider_count >= 8 and heading_count >= 8 and sponsor_count >= 8:
+                        response_valid = True
+                        st.warning("⚠️ Response slightly misformatted but displayed anyway:")
                         st.markdown(result)
                     else:
                         attempts += 1
