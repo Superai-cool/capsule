@@ -50,11 +50,7 @@ def analyze_label(image_bytes, age_group):
     prompt = f"""
 You are NutriBaby, a certified expert in infant and toddler nutrition.
 
-Analyze the uploaded food label and return a detailed, well-formatted report using this structure:
-
----
-
-**NutriBaby Food Label Analysis**
+Analyze the uploaded food label and return a detailed, well-formatted report using this structure (DO NOT include the title in the response):
 
 🥣 Quick Overview (Per 100g)
 - Calories
@@ -126,6 +122,9 @@ if uploaded_file:
                 except openai.OpenAIError as e:
                     st.error(f"❌ An error occurred while contacting OpenAI: {e}")
                     st.stop()
+
+            # --- Show Section Title ---
+            st.markdown("**NutriBaby Food Label Analysis**")
 
             # --- Output in Styled Container ---
             st.markdown(f"""
