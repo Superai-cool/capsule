@@ -123,8 +123,10 @@ if uploaded_file:
                     st.error(f"❌ An error occurred while contacting OpenAI: {e}")
                     st.stop()
 
+            # --- Show Section Title ---
             st.markdown("**NutriBaby Food Label Analysis**")
 
+            # --- Output in Styled Container ---
             st.markdown(f"""
 <div style="background:#f8f9fa; padding:1rem; border-radius:12px; font-family: 'Poppins', sans-serif;">
 {result}
@@ -132,60 +134,4 @@ if uploaded_file:
 """, unsafe_allow_html=True)
 
 else:
-    # --- Static Demo Output ---
-    demo_result = """
-## 🥣 Quick Overview *(Per 100g)*  
-- **Calories:** 79 kcal  
-- **Total Fat:** 2.1 g  
-  - Saturated: 1.4 g  
-  - Trans: 0.1 g  
-- **Carbohydrates:** 12.8 g  
-  - **Added Sugar:** 12.0 g 🚨  
-- **Protein:** 2.3 g  
-- **Calcium:** 74 mg
-
----
-
-## 🧾 Ingredients Check  
-| Ingredient                        | Verdict | Notes |
-|----------------------------------|--------|-------|
-| 🥛 **Toned Milk Dahi**            | ✅      | Good source of calcium and protein. |
-| 💧 **Water**                      | ✅      | Keeps baby hydrated. |
-| 🍬 **Sugar**                      | 🚫      | High sugar content; moderation needed. |
-| ⚖️ **Permitted Stabilizer (E 440)** | ⚠️      | Generally safe, but excess may affect digestion. |
-| 🌹 **Added Flavour (Rose)**       | 🚫      | Avoid artificial additives for infants. |
-
----
-
-## 👶 Concerns by Age Group  
-
-- **6–12 months:**  
-  🚫 *Avoid.* High sugar and artificial flavors are not suitable.
-
-- **1–2 years:**  
-  ⚠️ *Limit consumption.* Added sugar and flavors should be minimized.
-
-- **2+ years:**  
-  ✅ *Okay occasionally.* Balance with a wholesome diet.
-
----
-
-## 💡 NutriBaby Tips  
-- 🍓 *Go homemade:* Try plain yogurt with mashed or soft fruits.  
-- 🌿 *Flavor naturally:* Add mild spices or fruit purees to introduce variety.  
-
----
-
-## 🤝 Join Our Parent Circle  
-💬 **Join the [NutriBaby Parents WhatsApp Community](https://chat.whatsapp.com/L3rhA1Pg9jUA6VMwWqbPkC)** for expert tips, meal plans, and real-parent support!
-
----
-
-*Powered by SuperAI · Built for Baby Nutrition*
-"""
-    st.markdown("**NutriBaby Food Label Analysis (Example)**")
-    st.markdown(f"""
-<div style="background:#f8f9fa; padding:1rem; border-radius:12px; font-family: 'Poppins', sans-serif;">
-{demo_result}
-</div>
-""", unsafe_allow_html=True)
+    st.info("Upload a baby food label image to get started.")
