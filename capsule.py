@@ -3,6 +3,7 @@ import openai
 import requests
 import re
 import random
+import urllib.parse
 from datetime import datetime
 
 # Load secrets
@@ -22,6 +23,17 @@ sponsor_lines = [
     "📣 Porter | Mini Truck & Bike Logistics | https://www.porter.in"
 ]
 
+# List of supported countries
+country_options = {
+    "India": "in",
+    "United States": "us",
+    "United Kingdom": "gb",
+    "Australia": "au",
+    "Canada": "ca",
+    "Singapore": "sg",
+    "Germany": "de"
+}
+
 valid_query_pattern = re.compile(
     r"^Top 10 ([A-Za-z]+|[A-Za-z]+\s[A-Za-z]+) (News Today|[A-Za-z]+\sNews Today)$"
 )
@@ -29,6 +41,10 @@ valid_query_pattern = re.compile(
 # UI
 st.set_page_config(page_title="Capsule – Live News", layout="centered")
 st.title("📰 Capsule – Live News Summarizer")
+
+# Country select
+selected_country = st.selectbox("🌍 Select Country", list(country_options.keys()), index=0)
+country_code = country_options[selected_country]
 
 with st.expander("📌 Accepted Formats"):
     st.markdown("""
@@ -48,74 +64,67 @@ def is_valid_query(query):
 def extract_topic(query):
     return query.replace("Top 10", "").replace("News Today", "").strip()
 
-def fetch_news_from_api(query):
+def fetch_news(query, country):
     topic = extract_topic(query)
-    url = f"https://newsapi.org/v2/everything?q={topic}&language=en&sortBy=publishedAt&pageSize=15&apiKey={NEWS_API_KEY}"
+    url = f"https://newsapi.org/v2/top-headlines?q={topic}&country={country}&language=en&pageSize=10&apiKey={NEWS_API_KEY}"
     res = requests.get(url)
     articles = res.json().get("articles", [])
     return [
         {
-            "title": article["title"],
-            "description": article["description"],
-            "source": article["source"]["name"],
-            "url": article["url"]
+            "title": a["title"],
+            "description": a["description"] or "",
+            "source": a["source"]["name"],
+            "url": a["url"]
         }
-        for article in articles if article["title"]
+        for a in articles if a["title"] and a["url"]
     ]
 
-def summarize_with_gpt(query, articles):
+def format_summaries(query, articles):
     today = datetime.now().strftime("%B %d, %Y")
-    sponsor_text = "\n".join(random.sample(sponsor_lines, 10))
-    
-    news_text = "\n".join(
-        [f"- {a['title']} ({a['source']})" for a in articles[:10]]
-    )
+    sponsors = random.sample(sponsor_lines, 10)
+    summaries = []
 
-    prompt = f"""
-You are Capsule – an English-only news summarizer for India.
+    for idx, (a, sponsor) in enumerate(zip(articles, sponsors), start=1):
+        headline = a['title']
+        summary = a['description'] or "No description available."
+        read_more = f"[🔗 Read more – {a['source']}]({a['url']})"
 
-Query: "{query}"  
-Date: {today}
-
-🎯 Summarize these 10 real articles into properly formatted summaries:
-
-{news_text}
-
-📦 Format each like this:
-
-<number>. {query} | {today}  
-**Headline**  
-Summary (60–70 words)  
-📣 [One sponsor line from below]  
+        formatted = f"""
+{idx}. {query} | {today}  
+**{headline}**  
+{summary}  
+{read_more}  
+{str(sponsor)}  
 ---
+"""
+        summaries.append(formatted.strip())
 
-Sponsors (use each once, any order):
-{sponsor_text}
+    summaries.append("✅ All 10 news checked—done for today! 🎯")
+    return "\n\n".join(summaries)
 
-✅ End with:  
-✅ All 10 news checked—done for today! 🎯
-
-Do NOT fabricate news. Do NOT mix topics. Do NOT use markdown links.
-    """
-
-    response = openai.ChatCompletion.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_tokens=2000
-    )
-    return response.choices[0].message.content.strip()
+def generate_share_links(summary_text):
+    encoded_text = urllib.parse.quote(summary_text[:1500])  # truncate for platforms
+    whatsapp_url = f"https://api.whatsapp.com/send?text={encoded_text}"
+    telegram_url = f"https://t.me/share/url?url=&text={encoded_text}"
+    return whatsapp_url, telegram_url
 
 if user_query:
     if not is_valid_query(user_query):
         st.warning("⚠️ Invalid format. Use queries like:\n- Top 10 Sports News Today\n- Top 10 Mumbai Politics News Today")
     else:
-        with st.spinner("🧠 Fetching live headlines + generating summaries..."):
-            news_articles = fetch_news_from_api(user_query)
+        with st.spinner("🔁 Fetching and summarizing live news..."):
+            articles = fetch_news(user_query, country_code)
 
-            if not news_articles:
-                st.error("❌ No live articles found for this topic today.")
+            if not articles:
+                st.error("❌ No news found for that topic today.")
             else:
-                final_output = summarize_with_gpt(user_query, news_articles)
+                summary_output = format_summaries(user_query, articles)
                 st.markdown("### ✅ Top 10 Real-Time News Summaries")
-                st.markdown(final_output)
+                st.markdown(summary_output)
+
+                # Share buttons
+                st.markdown("---")
+                st.subheader("📤 Share This Summary")
+                wa_link, tg_link = generate_share_links(summary_output)
+                st.markdown(f"[💬 Share on WhatsApp]({wa_link})", unsafe_allow_html=True)
+                st.markdown(f"[📢 Share on Telegram]({tg_link})", unsafe_allow_html=True)
