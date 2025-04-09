@@ -3,24 +3,14 @@ import openai
 from PIL import Image
 import base64
 import io
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
-import tempfile
-import urllib.parse
 
-# --- Set OpenAI API Key ---
+# --- OpenAI API Key ---
 openai.api_key = st.secrets["openai"]["api_key"]
-
-# --- Branding ---
-BRANDING_START = "**Powered by SuperAI**"
-BRANDING_END = "**Join NutriBaby Parents Community** – [click here](https://chat.whatsapp.com/L3rhA1Pg9jUA6VMwWqbPkC)"
 
 # --- Page Setup ---
 st.set_page_config(page_title="NutriBaby", layout="centered", page_icon="🍼")
-
-# --- Title ---
 st.title("🍼 NutriBaby - Baby Food Label Analyzer")
-st.markdown("Analyze food labels for infants and toddlers. Get science-backed, age-appropriate advice.")
+st.markdown("Get accurate, age-based nutritional analysis of baby food labels.")
 
 # --- Age Filter ---
 age_group = st.selectbox("👶 Select Your Baby's Age Group:", [
@@ -29,36 +19,57 @@ age_group = st.selectbox("👶 Select Your Baby's Age Group:", [
 
 # --- Upload Instructions ---
 with st.expander("📸 How to Upload Food Label", expanded=False):
-    st.markdown("1️⃣ Take a **clear photo** of the food label (nutritional values + ingredients).  \n"
-                "2️⃣ Upload it below. NutriBaby will analyze and explain everything.")
+    st.markdown("""
+    - Take a **clear photo** of the baby food label (ingredients + nutrition).
+    - Upload below to get analysis.
+    """)
 
-uploaded_file = st.file_uploader("📤 Upload Baby Food Label", type=["png", "jpg", "jpeg"])
+uploaded_file = st.file_uploader("📤 Upload Label Image", type=["jpg", "jpeg", "png"])
 
-# --- Check if image is clear ---
+# --- Validate Image ---
 def is_image_clear(image: Image.Image) -> bool:
     return image.width >= 300 and image.height >= 300
 
-# --- GPT-4o Analysis Function ---
+# --- GPT Analysis ---
 def analyze_label(image_bytes, age_group):
     base64_image = base64.b64encode(image_bytes).decode("utf-8")
 
-    prompt = (
-        f"You are NutriBaby, a certified nutrition expert for babies and toddlers. "
-        f"The user has selected age group: **{age_group}**.\n\n"
-        "Analyze the uploaded food label image and provide:\n"
-        "- Nutritional overview with emojis per 100g\n"
-        "- Highlight any health concerns for the selected age\n"
-        "- Suggest better alternatives if necessary\n"
-        "- Recommend how or when to feed\n\n"
-        "Always format your reply like this:\n"
-        "1. 🔋 Nutritional Breakdown (with emojis)\n"
-        "2. 🧾 Ingredients (if readable)\n"
-        "3. ⚠️ Nutritional Concerns (highlight sugars, additives, etc.)\n"
-        "4. ✅ NutriBaby Recommends (better alternatives or tips)\n"
-        "5. End with branding:\n"
-        "Powered by SuperAI\n"
-        "Join NutriBaby Parents Community – click here"
-    )
+    prompt = f"""
+You are NutriBaby, a certified expert in infant and toddler nutrition.
+
+Analyze the uploaded food label and return a detailed, well-formatted report using this structure:
+
+---
+
+NutriBaby Food Label Analysis
+
+🥣 Quick Overview (Per 100g)
+- 🔥 Calories
+- 🧈 Total Fat (break into Saturated + Trans)
+- 🍞 Carbohydrates
+  - 🍬 Added Sugar
+- 💪 Protein
+- 🦴 Calcium
+
+📋 Ingredients Check
+- List ingredients with emojis and remarks (✅ good, ⚠️ moderate, 🚫 avoid)
+
+🚼 Concerns by Age Group
+- 👶 6–12 months
+- 🧒 1–2 years
+- 👧 2+ years
+
+✅ NutriBaby Tips
+- Suggest healthy alternatives
+- Simple feeding tips with emojis
+
+End with:
+
+Powered by SuperAI  
+Join NutriBaby Parents Community – https://chat.whatsapp.com/L3rhA1Pg9jUA6VMwWqbPkC
+
+DO NOT include download/copy/share buttons. Just formatted text.
+"""
 
     response = openai.chat.completions.create(
         model="gpt-4o",
@@ -77,62 +88,26 @@ def analyze_label(image_bytes, age_group):
     )
     return response.choices[0].message.content.strip()
 
-# --- Generate PDF ---
-def generate_pdf(text):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-        c = canvas.Canvas(tmp_file.name, pagesize=A4)
-        width, height = A4
-        text_object = c.beginText(40, height - 50)
-        text_object.setFont("Helvetica", 11)
-        for line in text.split("\n"):
-            text_object.textLine(line)
-        c.drawText(text_object)
-        c.showPage()
-        c.save()
-        return tmp_file.name
-
-# --- Main Logic ---
+# --- App Logic ---
 if uploaded_file:
     image = Image.open(uploaded_file)
 
     if not is_image_clear(image):
-        st.warning("⚠️ Image is too small or blurry. Please upload a clearer photo showing full nutritional info.")
+        st.warning("⚠️ Please upload a clearer image with visible nutritional values and ingredients.")
     else:
-        st.image(image, caption="📸 Uploaded Label", use_container_width=True, output_format="JPEG")
+        st.image(image, caption="📸 Uploaded Label", use_container_width=True)
 
         if st.button("🔍 Analyze Now"):
-            with st.spinner("Analyzing label with NutriBaby..."):
+            with st.spinner("Analyzing with NutriBaby..."):
                 image_bytes = io.BytesIO()
                 image.save(image_bytes, format="JPEG")
                 result = analyze_label(image_bytes.getvalue(), age_group)
 
-            # --- Display Output in Styled Box ---
-            st.markdown(f"""<div style="background:#f8f9fa; padding:1rem; border-radius:12px;">
-            {result}
-            </div>""", unsafe_allow_html=True)
-
-            # --- Download PDF Icon Button Only ---
-            pdf_file_path = generate_pdf(result)
-            with open(pdf_file_path, "rb") as f:
-                st.download_button("📥 Download PDF", f, file_name="nutribaby_analysis.pdf", mime="application/pdf")
-
-            # --- WhatsApp Share ---
-            encoded_text = urllib.parse.quote(result)
-            whatsapp_link = f"https://wa.me/?text={encoded_text}"
             st.markdown(f"""
-            <a href="{whatsapp_link}" target="_blank">
-                <button style="background-color:#25D366; color:white; padding:10px 18px; border:none; border-radius:6px; font-weight:bold;">
-                📤 Share on WhatsApp
-                </button>
-            </a>
-            """, unsafe_allow_html=True)
-
-            # --- Copyable Text Box Only (no broken button) ---
-            st.text_area("📋 Copy this result manually (if needed):", value=result, height=200)
+<div style="background:#f8f9fa; padding:1rem; border-radius:12px;">
+{result}
+</div>
+""", unsafe_allow_html=True)
 
 else:
-    st.info("Upload a food label image to begin.")
-
-# --- Footer ---
-st.markdown("---")
-st.markdown("Made with ❤️ by SuperAI. For any food concerns, always consult a certified pediatrician.")
+    st.info("Upload a food label image to get started.")
