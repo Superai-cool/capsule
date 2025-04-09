@@ -4,7 +4,7 @@ from PIL import Image
 import base64
 import io
 
-# Set OpenAI API Key from secrets
+# --- Set OpenAI API Key from secrets ---
 openai.api_key = st.secrets["openai"]["api_key"]
 
 # --- Branding Strings ---
@@ -54,11 +54,11 @@ with st.expander("📋 How to Analyze Baby Food Labels (Tap to expand)", expande
 st.markdown("### 📤 Upload Food Label Image")
 uploaded_file = st.file_uploader("Only baby/toddler food labels are accepted (ingredients + nutrition).", type=["png", "jpg", "jpeg"])
 
+# --- Simple image validation ---
 def is_image_clear(image: Image.Image) -> bool:
-    # Simple resolution check
-    min_width, min_height = 300, 300
-    return image.width >= min_width and image.height >= min_height
+    return image.width >= 300 and image.height >= 300
 
+# --- Analyze with GPT-4o ---
 def analyze_label(image_bytes):
     base64_image = base64.b64encode(image_bytes).decode("utf-8")
 
@@ -67,10 +67,11 @@ def analyze_label(image_bytes):
         messages=[
             {"role": "system", "content": (
                 "You are NutriBaby, an expert nutrition assistant for baby and toddler food. "
-                "Analyze food label images provided by users and give detailed, scientifically accurate advice. "
-                "Focus on nutrients, allergens, sugars, and additives. Provide clear, age-appropriate guidance, and suggest better alternatives if needed. "
-                "Always start with 'Powered by SuperAI' and end with 'Join NutriBaby Parents Community – [click here](https://chat.whatsapp.com/L3rhA1Pg9jUA6VMwWqbPkC).' "
-                "Respond only to food-related labels. Politely reject unclear, blurry, or unrelated images."
+                "Analyze food label images and provide detailed, science-backed nutritional advice. "
+                "Focus on nutrients, potential allergens, added sugars, and preservatives. "
+                "Respond in a warm, educational tone with age-appropriate recommendations. "
+                "Always start with: 'Powered by SuperAI' and end with: 'Join NutriBaby Parents Community – [click here](https://chat.whatsapp.com/L3rhA1Pg9jUA6VMwWqbPkC).' "
+                "Reject unrelated, blurry, or non-nutritional images politely."
             )},
             {"role": "user", "content": [
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
@@ -81,27 +82,26 @@ def analyze_label(image_bytes):
 
     return response.choices[0].message.content.strip()
 
-# --- Analyze Button ---
+# --- Analysis Button Logic ---
 if uploaded_file:
     image = Image.open(uploaded_file)
 
     if not is_image_clear(image):
-        st.warning("Image is too blurry or small. Please upload a clearer photo showing full nutritional info.")
+        st.warning("⚠️ Image is too blurry or small. Please upload a clearer photo showing the full nutritional label.")
     else:
-        st.image(image, caption="Uploaded Label", use_column_width=True, output_format="JPEG")
+        st.image(image, caption="📸 Uploaded Label", use_column_width=True, output_format="JPEG")
 
         if st.button("🔍 Analyze Now"):
-            with st.spinner("Analyzing label..."):
+            with st.spinner("Analyzing the label... please wait"):
                 image_bytes = io.BytesIO()
                 image.save(image_bytes, format="JPEG")
-                analysis = analyze_label(image_bytes.getvalue())
+                result = analyze_label(image_bytes.getvalue())
 
-            # Display Result
-            st.markdown(f"{BRANDING_START}\n\n{analysis}\n\n{BRANDING_END}")
+            st.markdown(f"{BRANDING_START}\n\n{result}\n\n{BRANDING_END}")
 
 else:
-    st.info("Upload a baby food label image to begin.")
+    st.info("📸 Upload a baby food label image to begin.")
 
 # --- Footer ---
 st.markdown("---")
-st.markdown("Built with ❤️ to support healthy baby nutrition.")
+st.markdown("Made with ❤️ to support informed parenting.")
