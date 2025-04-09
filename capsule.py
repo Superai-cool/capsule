@@ -74,7 +74,12 @@ def analyze_label(image_bytes):
                 "Reject unrelated, blurry, or non-nutritional images politely."
             )},
             {"role": "user", "content": [
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{base64_image}"
+                    }
+                }
             ]}
         ],
         max_tokens=1000
@@ -89,7 +94,7 @@ if uploaded_file:
     if not is_image_clear(image):
         st.warning("⚠️ Image is too blurry or small. Please upload a clearer photo showing the full nutritional label.")
     else:
-        st.image(image, caption="📸 Uploaded Label", use_column_width=True, output_format="JPEG")
+        st.image(image, caption="📸 Uploaded Label", use_container_width=True, output_format="JPEG")
 
         if st.button("🔍 Analyze Now"):
             with st.spinner("Analyzing the label... please wait"):
