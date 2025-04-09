@@ -55,7 +55,8 @@ Analyze the uploaded food label and return a detailed, well-formatted report usi
 
 - List ingredients with emojis and remarks (✅ good, ⚠️ moderate, 🚫 avoid)
 
-🚼 Concerns by Age Group
+**🚼 Concerns by Age Group**
+
 - 👶 6–12 months
 - 🧒 1–2 years
 - 👧 2+ years
