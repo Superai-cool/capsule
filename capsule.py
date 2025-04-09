@@ -9,11 +9,24 @@ openai.api_key = st.secrets["openai"]["api_key"]
 
 # --- Page Setup ---
 st.set_page_config(page_title="NutriBaby", layout="centered", page_icon="🍼")
+
+# --- Inject Custom Font (Poppins) ---
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Poppins', sans-serif;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- Title ---
 st.title("🍼 NutriBaby - Baby Food Label Analyzer")
 st.markdown("Get accurate, age-based nutritional analysis of baby food labels.")
 
 # --- Age Filter ---
-age_group = st.selectbox("👶 Select Your Baby's Age Group:", [
+age_group = st.selectbox("Select Your Baby's Age Group:", [
     "0–6 months", "6–12 months", "1–2 years", "2+ years"
 ])
 
@@ -21,10 +34,10 @@ age_group = st.selectbox("👶 Select Your Baby's Age Group:", [
 with st.expander("📸 How to Upload Food Label", expanded=False):
     st.markdown("""
     - Take a **clear photo** of the baby food label (ingredients + nutrition).
-    - Upload below to get analysis.
+    - Upload it below to get a detailed analysis.
     """)
 
-uploaded_file = st.file_uploader("📤 Upload Label Image", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader("Upload Label Image", type=["jpg", "jpeg", "png"])
 
 # --- Validate Image ---
 def is_image_clear(image: Image.Image) -> bool:
@@ -41,27 +54,27 @@ Analyze the uploaded food label and return a detailed, well-formatted report usi
 
 ---
 
-<strong>NutriBaby Food Label Analysis</strong>
+**NutriBaby Food Label Analysis**
 
 🥣 Quick Overview (Per 100g)
-- 🔥 Calories
-- 🧈 Total Fat (break into Saturated + Trans)
-- 🍞 Carbohydrates
-  - 🍬 Added Sugar
-- 💪 Protein
-- 🦴 Calcium
+- Calories
+- Total Fat (break into Saturated + Trans)
+- Carbohydrates
+  - Added Sugar
+- Protein
+- Calcium
 
-<strong>📋 Ingredients Check</strong>
+**Ingredients Check**
 
 - List ingredients with emojis and remarks (✅ good, ⚠️ moderate, 🚫 avoid)
 
-<strong>🚼 Concerns by Age Group</strong>
+**Concerns by Age Group**
 
-- 👶 6–12 months
-- 🧒 1–2 years
-- 👧 2+ years
+- 6–12 months
+- 1–2 years
+- 2+ years
 
-<strong>✅ NutriBaby Tips</strong>
+**NutriBaby Tips**
 
 - Suggest healthy alternatives
 - Simple feeding tips with emojis
@@ -98,9 +111,9 @@ if uploaded_file:
     if not is_image_clear(image):
         st.warning("⚠️ Please upload a clearer image with visible nutritional values and ingredients.")
     else:
-        st.image(image, caption="📸 Uploaded Label", use_container_width=True)
+        st.image(image, caption="Uploaded Label", use_container_width=True)
 
-        if st.button("🔍 Analyze Now"):
+        if st.button("Analyze Now"):
             with st.spinner("Analyzing with NutriBaby..."):
                 image_bytes = io.BytesIO()
                 image.save(image_bytes, format="JPEG")
@@ -116,7 +129,7 @@ if uploaded_file:
 
             # --- Output in Styled Container ---
             st.markdown(f"""
-<div style="background:#f8f9fa; padding:1rem; border-radius:12px;">
+<div style="background:#f8f9fa; padding:1rem; border-radius:12px; font-family: 'Poppins', sans-serif;">
 {result}
 </div>
 """, unsafe_allow_html=True)
