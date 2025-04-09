@@ -3,18 +3,22 @@ import openai
 from PIL import Image
 import base64
 import io
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+import tempfile
+import urllib.parse
 
-# --- OpenAI Key ---
+# --- Set OpenAI API Key ---
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# --- Branding Texts ---
+# --- Branding ---
 BRANDING_START = "**Powered by SuperAI**"
 BRANDING_END = "**Join NutriBaby Parents Community** – [click here](https://chat.whatsapp.com/L3rhA1Pg9jUA6VMwWqbPkC)"
 
-# --- Page Setup ---
+# --- Page Config ---
 st.set_page_config(page_title="NutriBaby", layout="centered", page_icon="🍼")
 
-# --- Styles ---
+# --- Custom CSS ---
 st.markdown("""
     <style>
     .stButton>button {
@@ -39,7 +43,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- App Title ---
+# --- Title ---
 st.title("🍼 NutriBaby - Baby Food Label Analyzer")
 st.markdown("Analyze food labels for infants and toddlers. Get science-backed, age-appropriate advice.")
 
@@ -48,7 +52,7 @@ age_group = st.selectbox("👶 Select Your Baby's Age Group:", [
     "0–6 months", "6–12 months", "1–2 years", "2+ years"
 ])
 
-# --- Upload Section ---
+# --- Upload Instructions ---
 with st.expander("📸 How to Upload Food Label", expanded=False):
     st.markdown("1️⃣ Take a **clear photo** of the food label (nutritional values + ingredients).  \n"
                 "2️⃣ Upload it below. NutriBaby will analyze and explain everything.")
@@ -59,7 +63,7 @@ uploaded_file = st.file_uploader("📤 Upload Baby Food Label", type=["png", "jp
 def is_image_clear(image: Image.Image) -> bool:
     return image.width >= 300 and image.height >= 300
 
-# --- Analyze Image via GPT ---
+# --- GPT-4o Analysis Function ---
 def analyze_label(image_bytes, age_group):
     base64_image = base64.b64encode(image_bytes).decode("utf-8")
 
@@ -98,15 +102,19 @@ def analyze_label(image_bytes, age_group):
     )
     return response.choices[0].message.content.strip()
 
-# --- Clipboard Copy Button ---
-def clipboard_button(text):
-    st.markdown(f"""
-    <textarea id="copyTarget" style="opacity:0; height:1px;">{text}</textarea>
-    <button onclick="navigator.clipboard.writeText(document.getElementById('copyTarget').value)"
-            style="margin-top:10px;background-color:#48c78e;color:white;padding:8px 16px;border:none;border-radius:6px;">
-        📋 Copy to Clipboard
-    </button>
-    """, unsafe_allow_html=True)
+# --- Generate PDF Function ---
+def generate_pdf(text):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+        c = canvas.Canvas(tmp_file.name, pagesize=A4)
+        width, height = A4
+        text_object = c.beginText(40, height - 50)
+        text_object.setFont("Helvetica", 11)
+        for line in text.split("\n"):
+            text_object.textLine(line)
+        c.drawText(text_object)
+        c.showPage()
+        c.save()
+        return tmp_file.name
 
 # --- Main Logic ---
 if uploaded_file:
@@ -123,13 +131,28 @@ if uploaded_file:
                 image.save(image_bytes, format="JPEG")
                 result = analyze_label(image_bytes.getvalue(), age_group)
 
-            # --- Output Display Box ---
+            # --- Output Box ---
             with st.container():
                 st.markdown(f"""<div class="container-box">{result}</div>""", unsafe_allow_html=True)
 
-            # --- Download & Clipboard ---
-            st.download_button("📄 Download Report", result, file_name="nutribaby_analysis.txt")
-            clipboard_button(result)
+            # --- PDF Download ---
+            pdf_file_path = generate_pdf(result)
+            with open(pdf_file_path, "rb") as f:
+                st.download_button("📥 Download as PDF", f, file_name="nutribaby_analysis.pdf", mime="application/pdf")
+
+            # --- WhatsApp Share ---
+            encoded_text = urllib.parse.quote(result)
+            whatsapp_link = f"https://wa.me/?text={encoded_text}"
+            st.markdown(f"""
+            <a href="{whatsapp_link}" target="_blank">
+                <button style="background-color:#25D366; color:white; padding:10px 18px; border:none; border-radius:6px; font-weight:bold;">
+                📤 Share on WhatsApp
+                </button>
+            </a>
+            """, unsafe_allow_html=True)
+
+            # --- Manual Copy ---
+            st.text_area("📋 Copy this analysis manually:", value=result, height=200)
 
 else:
     st.info("Upload a food label image to begin.")
