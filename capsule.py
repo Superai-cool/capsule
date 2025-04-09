@@ -41,7 +41,7 @@ Analyze the uploaded food label and return a detailed, well-formatted report usi
 
 ---
 
-NutriBaby Food Label Analysis
+**NutriBaby Food Label Analysis**
 
 🥣 Quick Overview (Per 100g)
 - 🔥 Calories
@@ -51,22 +51,25 @@ NutriBaby Food Label Analysis
 - 💪 Protein
 - 🦴 Calcium
 
-📋 Ingredients Check
+**📋 Ingredients Check**
+
 - List ingredients with emojis and remarks (✅ good, ⚠️ moderate, 🚫 avoid)
 
-🚼 Concerns by Age Group
+**🚼 Concerns by Age Group**
+
 - 👶 6–12 months
 - 🧒 1–2 years
 - 👧 2+ years
 
-✅ NutriBaby Tips
+**✅ NutriBaby Tips**
+
 - Suggest healthy alternatives
 - Simple feeding tips with emojis
 
 End with:
 
 Powered by SuperAI  
-Join NutriBaby Parents Community – https://chat.whatsapp.com/L3rhA1Pg9jUA6VMwWqbPkC
+Join NutriBaby Parents[Whatsapp](https://chat.whatsapp.com/L3rhA1Pg9jUA6VMwWqbPkC) Community – 
 
 DO NOT include download/copy/share buttons. Just formatted text.
 """
