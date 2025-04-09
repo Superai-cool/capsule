@@ -1,10 +1,13 @@
 import streamlit as st
 import openai
+import requests
 import re
 import random
 from datetime import datetime
 
+# Load secrets
 openai.api_key = st.secrets["OPENAI_API_KEY"]
+NEWS_API_KEY = st.secrets["NEWS_API_KEY"]
 
 sponsor_lines = [
     "📣 Capsule Ads | Increase Your Business Visibility | https://wa.link/mwb2hf",
@@ -23,8 +26,9 @@ valid_query_pattern = re.compile(
     r"^Top 10 ([A-Za-z]+|[A-Za-z]+\s[A-Za-z]+) (News Today|[A-Za-z]+\sNews Today)$"
 )
 
-st.set_page_config(page_title="Capsule – Top 10 News Summarizer", layout="centered")
-st.title("📰 Capsule – Top 10 News Summarizer")
+# UI
+st.set_page_config(page_title="Capsule – Live News", layout="centered")
+st.title("📰 Capsule – Live News Summarizer")
 
 with st.expander("📌 Accepted Formats"):
     st.markdown("""
@@ -41,81 +45,77 @@ user_query = st.text_input("🔍 Your Query")
 def is_valid_query(query):
     return bool(valid_query_pattern.match(query)) and all(ord(c) < 128 for c in query)
 
-def build_prompt(query):
+def extract_topic(query):
+    return query.replace("Top 10", "").replace("News Today", "").strip()
+
+def fetch_news_from_api(query):
+    topic = extract_topic(query)
+    url = f"https://newsapi.org/v2/everything?q={topic}&language=en&sortBy=publishedAt&pageSize=15&apiKey={NEWS_API_KEY}"
+    res = requests.get(url)
+    articles = res.json().get("articles", [])
+    return [
+        {
+            "title": article["title"],
+            "description": article["description"],
+            "source": article["source"]["name"],
+            "url": article["url"]
+        }
+        for article in articles if article["title"]
+    ]
+
+def summarize_with_gpt(query, articles):
     today = datetime.now().strftime("%B %d, %Y")
-    shuffled_sponsors = random.sample(sponsor_lines, 10)
-    sponsor_text = "\n".join([f"{i+1}. {s}" for i, s in enumerate(shuffled_sponsors)])
-    return f"""
-You're Capsule – an English-only news summarizer for India.
+    sponsor_text = "\n".join(random.sample(sponsor_lines, 10))
+    
+    news_text = "\n".join(
+        [f"- {a['title']} ({a['source']})" for a in articles[:10]]
+    )
+
+    prompt = f"""
+You are Capsule – an English-only news summarizer for India.
 
 Query: "{query}"  
 Date: {today}
 
-🎯 Task: Write 10 professionally written news summaries (~60–70 words each) ONLY about this topic. Use trusted Indian sources (TOI, Hindu, IE, etc).
+🎯 Summarize these 10 real articles into properly formatted summaries:
 
-📦 Format (repeat exactly 10 times):
+{news_text}
+
+📦 Format each like this:
 
 <number>. {query} | {today}  
 **Headline**  
-Summary  
-📣 [One sponsor line from the list below]  
+Summary (60–70 words)  
+📣 [One sponsor line from below]  
 ---
 
-Sponsors (use one per item, any order):
+Sponsors (use each once, any order):
 {sponsor_text}
 
 ✅ End with:  
 ✅ All 10 news checked—done for today! 🎯
 
-❌ Do NOT use markdown-style links like [text](url).  
-❌ Do NOT include multiple sources, emojis, commentary, or non-English.
-"""
+Do NOT fabricate news. Do NOT mix topics. Do NOT use markdown links.
+    """
+
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        max_tokens=2000
+    )
+    return response.choices[0].message.content.strip()
 
 if user_query:
     if not is_valid_query(user_query):
-        st.warning("""
-        📢 **Capsule** works only with **properly formatted requests.**
-
-        ✅ Try formats like:  
-        - Top 10 Sports News Today  
-        - Top 10 Mumbai News Today  
-        - Top 10 Delhi Politics News Today
-        """)
+        st.warning("⚠️ Invalid format. Use queries like:\n- Top 10 Sports News Today\n- Top 10 Mumbai Politics News Today")
     else:
-        with st.spinner("Generating your top 10 news..."):
-            prompt = build_prompt(user_query)
-            attempts = 0
-            response_valid = False
+        with st.spinner("🧠 Fetching live headlines + generating summaries..."):
+            news_articles = fetch_news_from_api(user_query)
 
-            while attempts < 2 and not response_valid:
-                try:
-                    response = openai.ChatCompletion.create(
-                        model="gpt-3.5-turbo",
-                        messages=[{"role": "user", "content": prompt}],
-                        temperature=0.7,
-                        max_tokens=2000
-                    )
-                    result = response.choices[0].message.content.strip()
-
-                    # Validate counts
-                    divider_count = result.count('---')
-                    heading_count = len(re.findall(r'\*\*(.*?)\*\*', result))
-                    sponsor_count = len(re.findall(r'📣', result))
-
-                    if divider_count == 10 and heading_count == 10 and sponsor_count == 10:
-                        response_valid = True
-                        st.markdown("### ✅ Top 10 News Summaries")
-                        st.markdown(result)
-                    elif divider_count >= 8 and heading_count >= 8 and sponsor_count >= 8:
-                        response_valid = True
-                        st.warning("⚠️ Response slightly misformatted but displayed anyway:")
-                        st.markdown(result)
-                    else:
-                        attempts += 1
-
-                except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
-                    break
-
-            if not response_valid:
-                st.error("⚠️ Unable to generate a valid response after multiple attempts. Please try again later.")
+            if not news_articles:
+                st.error("❌ No live articles found for this topic today.")
+            else:
+                final_output = summarize_with_gpt(user_query, news_articles)
+                st.markdown("### ✅ Top 10 Real-Time News Summaries")
+                st.markdown(final_output)
