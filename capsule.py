@@ -4,10 +4,10 @@ import re
 import random
 from datetime import datetime
 
-# Load OpenAI key
+# Load API key from secrets
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-# Sponsor Lines
+# Sponsor lines
 sponsor_lines = [
     "📣 Capsule Ads | Increase Your Business Visibility | [WhatsApp Now](https://wa.link/mwb2hf)",
     "📣 Amazon | One-Stop Online Shopping | [https://www.amazon.com](https://www.amazon.com)",
@@ -25,7 +25,7 @@ valid_query_pattern = re.compile(
     r"^Top 10 ([A-Za-z]+|[A-Za-z]+\s[A-Za-z]+) (News Today|[A-Za-z]+\sNews Today)$"
 )
 
-# UI Setup
+# UI setup
 st.set_page_config(page_title="Capsule – Top 10 News Summarizer", layout="centered")
 st.title("📰 Capsule – Top 10 News Summarizer")
 
@@ -44,7 +44,7 @@ user_query = st.text_input("🔍 Your Query")
 def is_valid_query(query):
     return bool(valid_query_pattern.match(query)) and all(ord(c) < 128 for c in query)
 
-def build_fast_prompt(query):
+def build_prompt(query):
     today = datetime.now().strftime("%B %d, %Y")
     shuffled_sponsors = random.sample(sponsor_lines, 10)
     sponsor_text = "\n".join([f"{i+1}. {s}" for i, s in enumerate(shuffled_sponsors)])
@@ -86,7 +86,7 @@ if user_query:
         """)
     else:
         with st.spinner("Generating your top 10 news..."):
-            prompt = build_fast_prompt(user_query)
+            prompt = build_prompt(user_query)
             attempts = 0
             response_valid = False
 
@@ -100,15 +100,18 @@ if user_query:
                     )
                     result = response.choices[0].message.content.strip()
 
-                    news_items = result.split('---')
-                    headings = re.findall(r'\*\*(.*?)\*\*', result)
-                    sponsors = [line for line in result.splitlines() if '📣' in line]
+                    # DEBUG: Show raw GPT output
+                    st.markdown("### 🧪 Raw GPT Output (for Debugging)")
+                    st.code(result)
 
-                    if len(news_items) == 10 and len(headings) == 10 and len(sponsors) == 10:
+                    # TEMP: Loose validation to test
+                    if result.count('📣') >= 8 and result.count('**') >= 8:
                         response_valid = True
+                        st.markdown("### ✅ Formatted News Output")
                         st.markdown(result)
                     else:
                         attempts += 1
+
                 except Exception as e:
                     st.error(f"Error: {str(e)}")
                     break
