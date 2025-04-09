@@ -4,10 +4,10 @@ import re
 import random
 from datetime import datetime
 
-# Load API Key
+# Load OpenAI key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-# Constants
+# Sponsor Lines
 sponsor_lines = [
     "📣 Capsule Ads | Increase Your Business Visibility | [WhatsApp Now](https://wa.link/mwb2hf)",
     "📣 Amazon | One-Stop Online Shopping | [https://www.amazon.com](https://www.amazon.com)",
@@ -25,10 +25,9 @@ valid_query_pattern = re.compile(
     r"^Top 10 ([A-Za-z]+|[A-Za-z]+\s[A-Za-z]+) (News Today|[A-Za-z]+\sNews Today)$"
 )
 
-# Streamlit UI
+# UI Setup
 st.set_page_config(page_title="Capsule – Top 10 News Summarizer", layout="centered")
 st.title("📰 Capsule – Top 10 News Summarizer")
-st.markdown("Enter your request in one of the **accepted formats**:")
 
 with st.expander("📌 Accepted Formats"):
     st.markdown("""
@@ -45,81 +44,62 @@ user_query = st.text_input("🔍 Your Query")
 def is_valid_query(query):
     return bool(valid_query_pattern.match(query)) and all(ord(c) < 128 for c in query)
 
-def build_prompt(query):
+def build_fast_prompt(query):
     today = datetime.now().strftime("%B %d, %Y")
     shuffled_sponsors = random.sample(sponsor_lines, 10)
     sponsor_text = "\n".join([f"{i+1}. {s}" for i, s in enumerate(shuffled_sponsors)])
 
-    prompt = f"""
-You are Capsule, a strict English-language Indian news summarizer. Only accept queries in this format:
-
-1. Top 10 [Topic] News Today
-2. Top 10 [City Name] News Today
-3. Top 10 [City Name] [Topic] News Today
+    return f"""
+You're Capsule – an English-only news summarizer for India.
 
 Query: "{query}"  
-Date: {today}  
+Date: {today}
 
-Strict Output Rules:
-- ✅ Exactly 10 summaries.
-- ✅ Each summary must be about the requested category only.
-- ✅ Each summary must follow **this exact format**:
+🎯 Task: Write 10 professionally written news summaries (~60–70 words each) about ONLY this topic. Use trusted Indian sources (TOI, Hindu, IE, etc).
 
-<number>. [Topic/City] | {today}  
+📦 Format (repeat exactly 10 times):
+<number>. {query} | {today}  
 **Headline**  
-Summary (60–70 words only, no bold or quotes)  
-📣 [One of the sponsor lines below]  
+Summary  
+📣 [Unique sponsor line from the list below]  
 ---
 
-- ❌ No extra content or commentary.
-- ❌ Do NOT return less than or more than 10.
-- ❌ Do NOT include multiple sources, emojis, or HTML.
-
-Use only today's verified Indian sources: TOI, IE, Mint, Hindu, HT, etc.
-
-Use these 10 sponsors (random order, once each):
+Sponsors (use one per item, any order):
 {sponsor_text}
 
-End with:  
+✅ End with:  
 ✅ All 10 news checked—done for today! 🎯
+
+Do NOT include: emojis, multiple sources, commentary, translation, or non-English.
 """
-    return prompt, shuffled_sponsors
 
 if user_query:
     if not is_valid_query(user_query):
         st.warning("""
-        📢 **Capsule** works only with **properly formatted requests.** Ask in one of the **formats below:**
+        📢 **Capsule** works only with **properly formatted requests.** Use one of:
 
-        📌 Accepted Request Formats:
+        - Top 10 [Topic] News Today  
+        - Top 10 [City Name] News Today  
+        - Top 10 [City Name] [Topic] News Today
 
-        1. Top 10 [Topic] News Today  
-        Example: Top 10 Sports News Today
-
-        2. Top 10 [City Name] News Today  
-        Example: Top 10 Delhi News Today
-
-        3. Top 10 [City Name] [Topic] News Today  
-        Example: Top 10 Mumbai Politics News Today
-
-        📩 Need Help?  
-        [WhatsApp](https://wa.link/mwb2hf) us your query at +91 8830720742
+        📩 Need Help? [WhatsApp](https://wa.link/mwb2hf) us your query at +91 8830720742
         """)
     else:
         with st.spinner("Generating your top 10 news..."):
-            prompt, shuffled_sponsors = build_prompt(user_query)
-
+            prompt = build_fast_prompt(user_query)
             attempts = 0
             response_valid = False
-            while attempts < 3 and not response_valid:
+
+            while attempts < 2 and not response_valid:
                 try:
                     response = openai.ChatCompletion.create(
-                        model="gpt-4",
+                        model="gpt-3.5-turbo",
                         messages=[{"role": "user", "content": prompt}],
                         temperature=0.7,
+                        max_tokens=2000
                     )
                     result = response.choices[0].message.content.strip()
 
-                    # Check for 10 summaries and sponsor lines
                     news_items = result.split('---')
                     headings = re.findall(r'\*\*(.*?)\*\*', result)
                     sponsors = [line for line in result.splitlines() if '📣' in line]
